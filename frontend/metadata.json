@@ -1,0 +1,7 @@
+{
+  "name": "Vehicle Management System",
+  "description": "A comprehensive dashboard for managing vehicles, drivers, and bookings. Features role-based access for admins, staff, and drivers to streamline vehicle operations.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
