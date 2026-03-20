@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 
 interface LoginProps {
-    onLogin: (email: string, password: string) => boolean;
+    onLogin: (email: string, password: string) => Promise<boolean>;
     onSwitchToSignup: () => void;
     onSwitchToForgotPassword: () => void;
 }
@@ -13,11 +12,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToSignup, onSwitchToForg
     const [showPassword, setShowPassword] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const success = onLogin(email, password);
-        if (!success) {
-            setErrorMessage('Invalid email or password');
+        setErrorMessage('');
+
+        try {
+            const success = await onLogin(email, password);
+            if (!success) {
+                setErrorMessage('Invalid email or password');
+            }
+        } catch (error) {
+            setErrorMessage('Something went wrong. Please try again.');
+            console.error(error);
         }
     };
 

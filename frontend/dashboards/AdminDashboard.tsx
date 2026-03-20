@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, Vehicle, Notification } from '../types';
 import { ADMIN_NAV_ITEMS } from '../constants';
 import ProfileDropdown from '../components/ProfileDropdown';
@@ -27,6 +27,38 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onUpdat
     const { users, vehicles, bookings, trips, fuelDetails, notifications } = data;
     const { addToast } = useToast();
 
+    // Fetch initial users from backend
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                if (response.ok && result.status === 'success') {
+                    const fetchedUsers: User[] = result.data.users.map((u: any) => ({
+                        id: u._id,
+                        username: u.username,
+                        fullName: u.fullName,
+                        email: u.email,
+                        phone: u.phone,
+                        role: u.role,
+                        joinDate: u.createdAt ? u.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+                        vehicleId: u.vehicleType ? (u.vehicleId?._id || u.vehicleId) : undefined,
+                        vehicleType: u.vehicleType,
+                        department: u.department,
+                    }));
+                    setData(prev => ({ ...prev, users: fetchedUsers }));
+                }
+            } catch (error) {
+                console.error('Error fetching users:', error);
+            }
+        };
+        fetchUsers();
+    }, [setData]);
+
     // Modal States
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
     const [isEditModalOpen, setEditModalOpen] = useState(false);
@@ -47,25 +79,64 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onUpdat
         vehicleId: '', status: 'maintenance' as 'available' | 'in-use' | 'maintenance', problem: ''
     });
 
-    const handleAddUser = (e: React.FormEvent) => {
+    const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!userForm.role) {
             addToast("Please select a role.", 'error');
             return;
         }
-        const newUser: User = {
-            // Use a more robust ID generation to avoid duplicates if users are deleted
-            id: 'U' + Date.now(),
-            username: userForm.username, password: userForm.password, fullName: userForm.fullName, email: userForm.email, phone: userForm.phone, 
-            role: userForm.role as 'admin' | 'staff' | 'driver',
-            joinDate: new Date().toISOString().split('T')[0],
-            vehicleId: userForm.role === 'driver' ? userForm.vehicleId : undefined,
-            vehicleType: userForm.role === 'driver' ? userForm.vehicleType : undefined,
-            department: userForm.role === 'staff' ? userForm.department : undefined,
-        };
-        setData(prev => ({ ...prev, users: [...prev.users, newUser] }));
-        addToast('User added successfully!', 'success');
-        setUserForm({ username: '', password: '', role: '', fullName: '', email: '', phone: '', vehicleId: '', vehicleType: '', department: '' });
+
+        try {
+            const token = localStorage.getItem('token');
+            const payload = {
+                username: userForm.username,
+                password: userForm.password,
+                fullName: userForm.fullName,
+                email: userForm.email,
+                phone: userForm.phone,
+                role: userForm.role,
+                vehicleId: userForm.role === 'driver' ? userForm.vehicleId : undefined,
+                vehicleType: userForm.role === 'driver' ? userForm.vehicleType : undefined,
+                department: userForm.role === 'staff' ? userForm.department : undefined,
+            };
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.status === 'success') {
+                const createdUser = result.data.user;
+                const newUser: User = {
+                    id: createdUser._id || 'U' + Date.now(),
+                    username: createdUser.username || userForm.username, 
+                    password: '', // Avoid storing password in frontend state
+                    fullName: createdUser.fullName || userForm.fullName, 
+                    email: createdUser.email || userForm.email, 
+                    phone: createdUser.phone || userForm.phone, 
+                    role: createdUser.role || userForm.role,
+                    joinDate: createdUser.createdAt ? createdUser.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+                    vehicleId: userForm.vehicleId,
+                    vehicleType: createdUser.vehicleType || userForm.vehicleType,
+                    department: createdUser.department || userForm.department,
+                };
+
+                setData(prev => ({ ...prev, users: [...prev.users, newUser] }));
+                addToast('User added successfully to backend!', 'success');
+                setUserForm({ username: '', password: '', role: '', fullName: '', email: '', phone: '', vehicleId: '', vehicleType: '', department: '' });
+            } else {
+                addToast(result.message || 'Failed to add user', 'error');
+            }
+        } catch (error) {
+            console.error('Error adding user:', error);
+            addToast('Network error while adding user', 'error');
+        }
     };
 
     const handleAddVehicle = (e: React.FormEvent) => {
@@ -101,11 +172,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onUpdat
         setEditModalOpen(true);
     };
 
-    const handleUpdateUserInList = (updatedUser: User) => {
-        setData(prev => ({ ...prev, users: prev.users.map(u => u.id === updatedUser.id ? updatedUser : u) }));
-        addToast('User updated successfully!', 'success');
-        setEditModalOpen(false);
-        setSelectedUser(null);
+    const handleUpdateUserInList = async (updatedUser: User) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${updatedUser.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify(updatedUser)
+            });
+            const result = await response.json();
+            if (response.ok && result.status === 'success') {
+                setData(prev => ({ ...prev, users: prev.users.map(u => u.id === updatedUser.id ? updatedUser : u) }));
+                addToast('User updated successfully!', 'success');
+                setEditModalOpen(false);
+                setSelectedUser(null);
+            } else {
+                addToast(result.message || 'Failed to update user', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating user:', error);
+            addToast('Network error while updating user', 'error');
+        }
     };
 
     const openDeleteModal = (userToDelete: User) => {
@@ -113,10 +203,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onUpdat
         setDeleteModalOpen(true);
     };
 
-    const confirmDeleteUser = () => {
+    const confirmDeleteUser = async () => {
         if (selectedUser) {
-            setData(prev => ({ ...prev, users: prev.users.filter(u => u.id !== selectedUser.id) }));
-            addToast('User deleted.', 'success');
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${selectedUser.id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    }
+                });
+                const result = await response.json();
+                if (response.ok && result.status === 'success') {
+                    setData(prev => ({ ...prev, users: prev.users.filter(u => u.id !== selectedUser.id) }));
+                    addToast('User deleted from backend.', 'success');
+                } else {
+                    addToast(result.message || 'Failed to delete user', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                addToast('Network error while deleting user', 'error');
+            }
         }
         setDeleteModalOpen(false);
         setSelectedUser(null);

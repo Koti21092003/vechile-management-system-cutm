@@ -6,19 +6,17 @@ type AppData = typeof initialData;
 
 const VMS_DATA_KEY = 'vms-data';
 
-function getInitialState(): AppData {
-    try {
-        const storedData = localStorage.getItem(VMS_DATA_KEY);
-        if (storedData) {
-            return JSON.parse(storedData);
-        }
-    } catch (e) {
-        console.error('Failed to parse data from localStorage', e);
-    }
-    return JSON.parse(JSON.stringify(initialData)); // Deep clone to avoid mutating original constants
-}
+const emptyState: AppData = {
+    users: [],
+    vehicles: [],
+    drivers: [],
+    bookings: [],
+    trips: [],
+    fuelDetails: [],
+    notifications: []
+};
 
-let state: AppData = getInitialState();
+let state: AppData = emptyState;
 
 const listeners: Set<() => void> = new Set();
 
