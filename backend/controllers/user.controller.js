@@ -42,6 +42,10 @@ export const createUser = async (req, res) => {
         if (role === 'driver' && licenseNumber) {
             await Driver.create({ userId: user._id, name: fullName, number: phone, email, licenseNumber, status: 'active' });
         }
+        if (req.io) {
+            req.io.emit('data_changed', { collection: 'users' });
+            if (role === 'driver') req.io.emit('data_changed', { collection: 'drivers' });
+        }
         res.status(201).json({ status: 'success', message: 'User created successfully', data: { user } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
@@ -61,6 +65,10 @@ export const updateUser = async (req, res) => {
         if (user.role === 'driver') {
             await Driver.findOneAndUpdate({ userId: user._id }, { name: user.fullName, number: user.phone, email: user.email, licenseNumber: user.licenseNumber });
         }
+        if (req.io) {
+            req.io.emit('data_changed', { collection: 'users' });
+            if (user.role === 'driver') req.io.emit('data_changed', { collection: 'drivers' });
+        }
         res.status(200).json({ status: 'success', message: 'User updated successfully', data: { user } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error updating user' });
@@ -73,6 +81,10 @@ export const deleteUser = async (req, res) => {
         if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
         if (user.role === 'driver') await Driver.findOneAndDelete({ userId: user._id });
         await user.deleteOne();
+        if (req.io) {
+            req.io.emit('data_changed', { collection: 'users' });
+            if (user.role === 'driver') req.io.emit('data_changed', { collection: 'drivers' });
+        }
         res.status(200).json({ status: 'success', message: 'User deleted successfully' });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error deleting user' });
@@ -85,6 +97,7 @@ export const toggleUserStatus = async (req, res) => {
         if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
         user.isActive = !user.isActive;
         await user.save();
+        if (req.io) req.io.emit('data_changed', { collection: 'users' });
         res.status(200).json({ status: 'success', message: `User ${user.isActive ? 'activated' : 'deactivated'}`, data: { user } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error toggling user status' });
@@ -125,6 +138,8 @@ export const uploadProfilePhoto = async (req, res) => {
         if (!user) {
             return res.status(404).json({ status: 'error', message: 'User not found' });
         }
+        
+        if (req.io) req.io.emit('data_changed', { collection: 'users' });
 
         res.status(200).json({
             status: 'success',

@@ -5,6 +5,8 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import http from 'http';
+import { Server } from 'socket.io';
 import connectDB from './config/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,6 +27,19 @@ dotenv.config();
 
 // Initialize express app
 const app = express();
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+        credentials: true
+    }
+});
+
+// Inject io into request
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
 
 // Connect to MongoDB
 connectDB();
@@ -83,7 +98,7 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
 });
 

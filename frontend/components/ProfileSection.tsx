@@ -51,23 +51,63 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ user, themeColor, onUpd
 
     const currentTheme = themeClasses[themeColor];
 
-    const handleSaveProfile = (e: React.FormEvent) => {
+    const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
-        onUpdateUser(editForm);
-        setEditMode(false);
-        addToast('Profile updated successfully!', 'success');
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${user.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify(editForm)
+            });
+            const result = await response.json();
+            if (response.ok && result.status === 'success') {
+                onUpdateUser(editForm);
+                setEditMode(false);
+                addToast('Profile updated successfully!', 'success');
+            } else {
+                addToast(result.message || 'Failed to update profile', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            addToast('Network error while updating profile', 'error');
+        }
     };
 
-    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const result = event.target?.result as string;
-                onUpdateUser({ profilePhoto: result });
-                addToast('Profile photo updated!', 'success');
-            };
-            reader.readAsDataURL(file);
+            try {
+                const formData = new FormData();
+                formData.append('photo', file);
+                
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${user.id}/upload-photo`, {
+                    method: 'POST',
+                    headers: { 
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                if (response.ok && result.status === 'success') {
+                    const fullPhotoUrl = result.data.photoUrl.startsWith('http') 
+                        ? result.data.photoUrl 
+                        : `${import.meta.env.VITE_API_URL.replace('/api', '')}${result.data.photoUrl}`;
+                        
+                    onUpdateUser({ profilePhoto: fullPhotoUrl });
+                    addToast('Profile photo updated successfully!', 'success');
+                } else {
+                    addToast(result.message || 'Failed to upload photo', 'error');
+                }
+            } catch (error) {
+                console.error('Error uploading photo:', error);
+                addToast('Network error while uploading photo', 'error');
+            }
         }
     };
     

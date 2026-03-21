@@ -27,6 +27,7 @@ export const getTrip = async (req, res) => {
 export const createTrip = async (req, res) => {
     try {
         const trip = await Trip.create(req.body);
+        if (req.io) req.io.emit('data_changed', { collection: 'trips' });
         res.status(201).json({ status: 'success', message: 'Trip created successfully', data: { trip } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
@@ -37,6 +38,7 @@ export const updateTrip = async (req, res) => {
     try {
         const trip = await Trip.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
         if (!trip) return res.status(404).json({ status: 'error', message: 'Trip not found' });
+        if (req.io) req.io.emit('data_changed', { collection: 'trips' });
         res.status(200).json({ status: 'success', message: 'Trip updated successfully', data: { trip } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error updating trip' });
@@ -47,6 +49,7 @@ export const deleteTrip = async (req, res) => {
     try {
         const trip = await Trip.findByIdAndDelete(req.params.id);
         if (!trip) return res.status(404).json({ status: 'error', message: 'Trip not found' });
+        if (req.io) req.io.emit('data_changed', { collection: 'trips' });
         res.status(200).json({ status: 'success', message: 'Trip deleted successfully' });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error deleting trip' });
@@ -57,6 +60,7 @@ export const startTrip = async (req, res) => {
     try {
         const trip = await Trip.findByIdAndUpdate(req.params.id, { status: 'in-progress', startTime: new Date() }, { new: true });
         if (!trip) return res.status(404).json({ status: 'error', message: 'Trip not found' });
+        if (req.io) req.io.emit('data_changed', { collection: 'trips' });
         res.status(200).json({ status: 'success', message: 'Trip started successfully', data: { trip } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error starting trip' });
@@ -67,6 +71,7 @@ export const completeTrip = async (req, res) => {
     try {
         const trip = await Trip.findByIdAndUpdate(req.params.id, { status: 'completed', endTime: new Date(), ...req.body }, { new: true });
         if (!trip) return res.status(404).json({ status: 'error', message: 'Trip not found' });
+        if (req.io) req.io.emit('data_changed', { collection: 'trips' });
         res.status(200).json({ status: 'success', message: 'Trip completed successfully', data: { trip } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error completing trip' });

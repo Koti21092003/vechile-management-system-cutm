@@ -26,6 +26,7 @@ export const getVehicle = async (req, res) => {
 export const createVehicle = async (req, res) => {
     try {
         const vehicle = await Vehicle.create(req.body);
+        if (req.io) req.io.emit('data_changed', { collection: 'vehicles' });
         res.status(201).json({ status: 'success', message: 'Vehicle created successfully', data: { vehicle } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
@@ -41,6 +42,7 @@ export const updateVehicle = async (req, res) => {
             return res.status(404).json({ status: 'error', message: 'Vehicle not found' });
         }
         console.log('Vehicle updated successfully:', vehicle);
+        if (req.io) req.io.emit('data_changed', { collection: 'vehicles' });
         res.status(200).json({ status: 'success', message: 'Vehicle updated successfully', data: { vehicle } });
     } catch (error) {
         console.error('Error updating vehicle:', error);
@@ -52,6 +54,7 @@ export const deleteVehicle = async (req, res) => {
     try {
         const vehicle = await Vehicle.findByIdAndDelete(req.params.id);
         if (!vehicle) return res.status(404).json({ status: 'error', message: 'Vehicle not found' });
+        if (req.io) req.io.emit('data_changed', { collection: 'vehicles' });
         res.status(200).json({ status: 'success', message: 'Vehicle deleted successfully' });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error deleting vehicle' });
@@ -63,6 +66,7 @@ export const assignDriver = async (req, res) => {
         const { driverId } = req.body;
         const vehicle = await Vehicle.findByIdAndUpdate(req.params.id, { driverId }, { new: true }).populate('driverId', 'fullName phone email');
         if (!vehicle) return res.status(404).json({ status: 'error', message: 'Vehicle not found' });
+        if (req.io) req.io.emit('data_changed', { collection: 'vehicles' });
         res.status(200).json({ status: 'success', message: 'Driver assigned successfully', data: { vehicle } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error assigning driver' });

@@ -106,6 +106,7 @@ export const createBooking = async (req, res) => {
         await session.commitTransaction();
         session.endSession();
 
+        if (req.io) req.io.emit('data_changed', { collection: 'bookings' });
         res.status(201).json({ 
             status: 'success', 
             message: 'Booking request created. Waiting for driver acceptance.',
@@ -130,6 +131,7 @@ export const updateBooking = async (req, res) => {
     try {
         const booking = await Booking.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
         if (!booking) return res.status(404).json({ status: 'error', message: 'Booking not found' });
+        if (req.io) req.io.emit('data_changed', { collection: 'bookings' });
         res.status(200).json({ status: 'success', message: 'Booking updated successfully', data: { booking } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error updating booking' });
@@ -140,6 +142,7 @@ export const deleteBooking = async (req, res) => {
     try {
         const booking = await Booking.findByIdAndDelete(req.params.id);
         if (!booking) return res.status(404).json({ status: 'error', message: 'Booking not found' });
+        if (req.io) req.io.emit('data_changed', { collection: 'bookings' });
         res.status(200).json({ status: 'success', message: 'Booking deleted successfully' });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error deleting booking' });
@@ -230,7 +233,8 @@ export const acceptBooking = async (req, res) => {
         session.endSession();
 
         if (req.io) {
-            req.io.emit('booking_updated', { bookingId: booking._id, status: 'approved' });
+            req.io.emit('data_changed', { collection: 'bookings' });
+            req.io.emit('data_changed', { collection: 'vehicles' });
         }
 
         res.status(200).json({ 
@@ -289,6 +293,7 @@ export const approveBooking = async (req, res) => {
         await session.commitTransaction();
         session.endSession();
         
+        if (req.io) req.io.emit('data_changed', { collection: 'bookings' });
         res.status(200).json({ status: 'success', message: 'Booking approved successfully', data: { booking } });
     } catch (error) {
         await session.abortTransaction();
@@ -303,6 +308,7 @@ export const declineBooking = async (req, res) => {
         const booking = await Booking.findByIdAndUpdate(req.params.id, { status: 'declined' }, { new: true });
         if (!booking) return res.status(404).json({ status: 'error', message: 'Booking not found' });
         await Notification.create({ userId: booking.userId, message: 'Your booking has been declined', type: 'error', link: 'viewBookings', relatedId: booking._id, relatedModel: 'Booking' });
+        if (req.io) req.io.emit('data_changed', { collection: 'bookings' });
         res.status(200).json({ status: 'success', message: 'Booking declined', data: { booking } });
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error declining booking' });
