@@ -25,12 +25,22 @@ import notificationRoutes from './routes/notification.routes.js';
 // Load environment variables
 dotenv.config();
 
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://vechile-management-system-cutm.vercel.app',
+    'https://vechile-management-system-cutm-git-main-koti21092003s-projects.vercel.app'
+];
+if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+    allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 // Initialize express app
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+        origin: allowedOrigins,
         credentials: true
     }
 });
@@ -49,7 +59,7 @@ app.use(helmet({
     crossOriginResourcePolicy: false, // Allow images to be loaded
 })); // Security headers
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true
 }));
 app.use(express.json()); // Parse JSON bodies
